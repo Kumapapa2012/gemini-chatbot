@@ -1,15 +1,18 @@
-FROM node:24.12.0
+# ビルドステージ
+FROM node:24.12.0 AS build
 WORKDIR /app
-
-# Install dependencies
 COPY package*.json ./
-RUN npm install --silent
-
-# Copy app source
+RUN npm install
 COPY . .
+RUN npm run build
 
-# Vite dev server should be reachable from host; bind to 0.0.0.0
-ENV VITE_HOST=0.0.0.0
-EXPOSE 5173
+# 本番ステージ
+FROM nginx:latest
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# nginxがファイルとディレクトリを読み取れるようにパーミッションを設定
+RUN chmod -R a+r /usr/share/nginx/html
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,25 +1,27 @@
-# 自習用：Gemini API 思考過程表示チャットボット
+# Gemini API 思考過程表示チャットボット
+**(この README は Gemini 2.5Pro で生成しました。)**
 
 このプロジェクトは、Google の Gemini API を利用して、AI の思考過程と最終的な回答をリアルタイムで表示するチャットアプリケーションです。
 
-フロントエンドは React (Vite)、バックエンドは Node.js (Express) で構築されています。開発環境は Docker Compose によってコンテナ化されており、簡単なコマンドで全体のシステムを起動できます。
+フロントエンドは React (Vite) でビルドされた静的コンテンツを nginx で配信し、バックエンドは Node.js (Express) で構築されています。システム全体は Docker Compose によってコンテナ化されており、簡単なコマンドで起動できます。
 
 ## ✨ 主な機能
 
 -   **リアルタイム応答**: Server-Sent Events (SSE) を使用し、サーバーからの思考過程や回答をストリーミングで表示します。
 -   **思考過程の可視化**: Gemini API の思考プロセス（`thought`）を抽出し、ユーザーに応答が生成されるまでの裏側の動きを見ることができます。
 -   **Markdown レンダリング**: AI からの回答を Markdown 形式で整形して表示します。
--   **Docker による開発環境**: `docker-compose` を使って、ワンコマンドでフロントエンドとバックエンドの開発環境を同時に構築・起動できます。
+-   **リバースプロキシ**: フロントエンドの nginx が API リクエストをバックエンドに中継するため、ブラウザはフロントエンドのエンドポイントとのみ通信します。
+-   **Docker による実行環境**: `docker-compose` を使って、ワンコマンドでフロントエンドとバックエンドの本番に近い環境を構築・起動できます。
 
 ## 🛠️ 技術スタック
 
 -   **フロントエンド**:
-    -   React 19, Vite
+    -   React 19, Vite (ビルドツールとして使用)
+    -   Nginx (静的コンテンツ配信 & リバースプロキシ)
     -   `react-markdown`: 回答の Markdown レンダリング
 -   **バックエンド**:
     -   Node.js 24.12.0, Express
     -   `@google/generative-ai`: Gemini API との通信
-    -   `nodemon`: 開発時のホットリロード
 -   **コンテナ化**:
     -   Docker, Docker Compose
 
@@ -51,18 +53,12 @@ npm create vite@latest client -- --template react
     ```
 
 2.  **.env ファイルの作成:**
-    プロジェクトのルートディレクトリに `.env` ファイルを作成し、ご自身の Gemini API キーと、クライアントがバックエンドサーバーに接続するための URL を記述します。
+    プロジェクトのルートディレクトリに `.env` ファイルを作成し、ご自身の Gemini API キーを記述します。
 
     ```.env
     # Google Gemini API の認証キー
     GEMINI_API_KEY=YOUR_GEMINI_API_KEY
-
-    # フロントエンド (Vite) がバックエンドサーバーを参照するための URL
-    # docker-compose で起動する場合、通常は localhost:3001 を指定します
-    VITE_AI_CHAT_SERVER_URL=http://localhost:3001
     ```
-    
-    **注意**: `VITE_` プレフィックスは、Vite がクライアントサイドのコードで環境変数を読み込むために必須です。
 
 3.  **Docker コンテナのビルドと起動:**
     ```bash
@@ -71,35 +67,33 @@ npm create vite@latest client -- --template react
     `-d` フラグを付けると、コンテナをバックグラウンドで実行します。
 
 4.  **アプリケーションへのアクセス:**
-    ブラウザで `http://localhost:5173` にアクセスすると、チャットアプリケーションが表示されます。
+    ブラウザで `http://localhost:12080` にアクセスすると、チャットアプリケーションが表示されます。
 
-    -   フロントエンド (クライアント): `http://localhost:5173`
-    -   バックエンド (サーバー API): `http://localhost:3001`
+    -   フロントエンド (クライアント): `http://localhost:12080`
+    -   バックエンド (サーバー API): `http://localhost:3001` (直接アクセスは通常不要)
 
 ## ⚙️ 動作の仕組み
 
-1.  ユーザーがフロントエンドからメッセージを送信します。
-2.  クライアント (React) は、環境変数 `VITE_AI_CHAT_SERVER_URL` を元にバックエンドの `/api/chat` エンドポイントにリクエストを送信します。
-3.  サーバー (Express) は、リクエストを受け取り、Gemini API にストリーミング形式でリクエストを転送します。この際、思考プロセスを有効にする設定を付与します。
-4.  Gemini API からチャンク（部分的なデータ）が返ってくるたびに、サーバーはそれを解析します。
-    -   `thought` (思考過程) のデータが含まれていれば、`event: thinking` としてクライアントに送信します。
-    -   回答本文のデータが含まれていれば、`event: answer` としてクライアントに送信します。
-5.  クライアントは SSE を通じてこれらのイベントをリッスンし、受け取ったデータをリアルタイムで画面に描画します。
+1.  ユーザーがブラウザで `http://localhost:12080` にアクセスすると、フロントエンドコンテナの **nginx** がビルド済みの React アプリケーション (静的ファイル) を返します。
+2.  ユーザーがメッセージを送信すると、React アプリケーションは `/api/chat` という **相対パス** でリクエストを送信します。
+3.  このリクエストはフロントエンドの **nginx** が受け取ります。`nginx.conf` の設定に基づき、`/api/` で始まるリクエストはバックエンドコンテナ (`http://chatbot-server:3001`) に **リバースプロキシ（転送）** されます。
+4.  バックエンドサーバー (Express) はリクエストを受け取り、Gemini API との通信を開始します。
+5.  Gemini API からの応答 (思考過程や回答) は、SSE を通じてバックエンドサーバー → nginx → ブラウザへとストリーミングされ、リアルタイムで画面に描画されます。
+
+このアーキテクチャにより、ブラウザはバックエンドサーバーの存在を直接知る必要がなくなり、すべての通信がフロントエンドのエンドポイント (`http://localhost`) に集約されます。
 
 ## 📁 ディレクトリ構造
 
 ```
 .
 ├── client/                # React フロントエンド
-│   ├── Dockerfile         # 開発用 Dockerfile
-│   ├── .dockerignore      # Docker イメージから除外するファイル
-│   ├── .env               # ローカル開発用の環境変数（docker-composeからは使用されない）
+│   ├── Dockerfile         # Nginx を使用した本番用 Dockerfile
+│   ├── nginx.conf         # Nginx のリバースプロキシ設定
 │   ├── package.json
 │   └── src/
 │       └── App.jsx        # メインコンポーネント
 ├── server/                # Node.js バックエンド
 │   ├── Dockerfile         # 開発用 Dockerfile
-│   ├── .dockerignore
 │   ├── package.json
 │   └── index.js           # Express サーバー
 ├── .env                   # docker-compose が読み込む環境変数

@@ -3,12 +3,7 @@ services:
     build: ./client
     container_name: chatbot-client
     ports:
-      - "5173:5173"
-    volumes:
-      - ./client:/app
-      - /app/node_modules # ホスト側のnode_modulesで上書きされないように
-    environment:
-      - VITE_AI_CHAT_SERVER_URL=${VITE_AI_CHAT_SERVER_URL}
+      - "12080:80"
     depends_on:
       - chatbot-server
 

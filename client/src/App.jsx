@@ -11,11 +11,10 @@ function App() {
     setThinking('');
     setAnswer('');
     //
-    console.log('Backend URL:', import.meta.env.VITE_AI_CHAT_SERVER_URL);
     console.log('input:', input);
     
     // URLSearchParamsなどでクエリパラメータを作成
-    const response = await fetch(`${import.meta.env.VITE_AI_CHAT_SERVER_URL}/api/chat?prompt=${encodeURIComponent(input)}`);
+    const response = await fetch(`/api/chat?prompt=${encodeURIComponent(input)}`);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 

@@ -33,8 +33,10 @@ done
 echo "------------------------------------------"
 echo "🚀 Deploying docker-compose.yaml to $REMOTE_TARGET"
 
-# docker-compose.yaml を同期
+# docker-compose.yaml と .envを同期
 rsync -avz --delete \
     "docker-compose.yaml" "$REMOTE_TARGET/docker-compose.yaml"
+rsync -avz --delete \
+    ".env" "$REMOTE_TARGET/.env"
     
 echo "✅ All apps deployed successfully."
