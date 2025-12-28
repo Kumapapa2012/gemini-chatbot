@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# --- 設定 ---
+# サーバーの接続情報 (例: user@hostname:/path/to/webdav-server/apps)
+REMOTE_TARGET="kmori@192.168.1.219:/kmori_Share/nodejs/gemini-chatbot"
+APPS=("client" "server")
+
+# --- 同期実行 ---
+for APP in "${APPS[@]}"; do
+    echo "------------------------------------------"
+    echo "🚀 Deploying $APP to $REMOTE_TARGET/$APP"
+    echo "------------------------------------------"
+
+    # rsync の実行
+    # -a: アーカイブモード (権限や時間を保持)
+    # -v: 詳細表示
+    # -z: 圧縮して転送
+    # --delete: 送信元から消えたファイルを送信先でも消す (同期)
+    # --exclude-from: .dockerignore を除外ルールとして使用
+    
+    if [ -f "$APP/.dockerignore" ]; then
+        rsync -avz --delete \
+            --exclude-from="$APP/.dockerignore" \
+            "$APP/" "$REMOTE_TARGET/$APP/"
+    else
+        # .dockerignore がない場合は通常の同期
+        rsync -avz --delete \
+            "$APP/" "$REMOTE_TARGET/$APP/"
+    fi
+done
+
+# カレントフォルダの docker-compose.yaml を同期
+echo "------------------------------------------"
+echo "🚀 Deploying docker-compose.yaml to $REMOTE_TARGET"
+
+# docker-compose.yaml を同期
+rsync -avz --delete \
+    "docker-compose.yaml" "$REMOTE_TARGET/docker-compose.yaml"
+    
+echo "✅ All apps deployed successfully."
